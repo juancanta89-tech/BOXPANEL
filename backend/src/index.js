@@ -36,7 +36,7 @@ function checkUrl(value){if(!value)return null;const u=new URL(String(value));if
 export default {async fetch(request,env){
  const path=new URL(request.url).pathname;
  const headers=cors(request,env);
- if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
+ if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Cf-Access-Jwt-Assertion'}});
  if(path==='/health')return json({ok:true,service:'BOXPANEL API'},200,headers);
  if(path.startsWith('/api/reseller/'))return addCors(await routeReseller(request,env,verifyAccess),headers);
  if(path.startsWith('/api/master/'))return addCors(await routeMaster(request,env,verifyAccess),headers);
