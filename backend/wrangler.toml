@@ -6,7 +6,7 @@ compatibility_date = "2026-10-20"
 [[d1_databases]]
 binding = "DB"
 database_name = "boxpanel-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "5fff43be-94a2-4c72-b689-7fd04fdc7d26"
 
 [vars]
 PUBLIC_ORIGIN = "https://juancanta89-tech.github.io"
