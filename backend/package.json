@@ -1,0 +1,12 @@
+{
+  "name": "boxpanel-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "check": "node --check src/index.js && node --check src/reseller-api.js && node --check src/master-api.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
