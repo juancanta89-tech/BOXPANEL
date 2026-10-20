@@ -23,6 +23,17 @@ jobs:
           node --check src/index.js
           node --check src/reseller-api.js
           node --check src/master-api.js
+      - name: Block unsafe production deployment
+        working-directory: backend
+        run: |
+          if grep -q 'REPLACE_WITH_' wrangler.toml; then
+            echo 'Cloudflare Access is not configured; production deployment blocked.'
+            exit 1
+          fi
+          if [ ! -f .production-ready ]; then
+            echo 'D1 migration, login and storage must be verified before deployment.'
+            exit 1
+          fi
       - name: Install dependencies
         working-directory: backend
         run: npm install --no-audit --no-fund
