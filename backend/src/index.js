@@ -1,4 +1,5 @@
 import { routeReseller } from './reseller-api.js';
+import { routeMaster } from './master-api.js';
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const allowedOrigin=env=>env.PUBLIC_ORIGIN;
 function cors(request,env){const origin=request.headers.get('Origin');return origin===allowedOrigin(env)?{'Access-Control-Allow-Origin':origin,'Vary':'Origin'}:{}}
@@ -37,6 +38,7 @@ export default {async fetch(request,env){
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
  if(path==='/health')return json({ok:true,service:'BOXPANEL API'},200,headers);
  if(path.startsWith('/api/reseller/'))return routeReseller(request,env,verifyAccess);
+ if(path.startsWith('/api/master/'))return routeMaster(request,env,verifyAccess);
  if(path==='/api/products'&&request.method==='GET'){
   const r=await env.DB.prepare('SELECT id,name,category,description,icon,image_url,download_url,updated_at FROM products WHERE published=1 ORDER BY updated_at DESC LIMIT 100').all();
   return json({products:r.results},200,headers);
