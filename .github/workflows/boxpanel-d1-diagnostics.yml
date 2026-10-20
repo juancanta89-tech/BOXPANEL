@@ -14,7 +14,7 @@ jobs:
           node-version: '22'
       - name: Install Wrangler
         working-directory: backend
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Verify BOXPANEL target
         working-directory: backend
         run: |
@@ -28,5 +28,4 @@ jobs:
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing environment secret'; exit 1; }
           node -e 'const t=process.env.CLOUDFLARE_API_TOKEN||""; if(!/^[A-Za-z0-9_-]+$/.test(t)){console.error("Invalid token format: ensure GitHub secret contains ONLY the Cloudflare API token, without Bearer, quotes, spaces, line breaks or JSON.");process.exit(1)}'
-          npx wrangler d1 execute boxpanel-db --remote --command "SELECT name,type,sql FROM sqlite_master WHERE name IN ('resellers','reseller_ads','reseller_dns','panel_accounts','products','ads_quota_insert','dns_quota_insert') ORDER BY type,name;"
-          npx wrangler d1 execute boxpanel-db --remote --command "SELECT 'resellers' AS table_name,COUNT(*) AS rows FROM resellers UNION ALL SELECT 'reseller_ads',COUNT(*) FROM reseller_ads UNION ALL SELECT 'reseller_dns',COUNT(*) FROM reseller_dns;"
+          npx wrangler d1 execute boxpanel-db --remote --command "SELECT name,type,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY type,name;"

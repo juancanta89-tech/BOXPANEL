@@ -10,9 +10,17 @@ database_id = "5fff43be-94a2-4c72-b689-7fd04fdc7d26"
 
 [vars]
 PUBLIC_ORIGIN = "https://juancanta89-tech.github.io"
+ALLOW_HTTP_DNS = "false"
+ADS_STORAGE_ENABLED = "false"
 # Configure Cloudflare Access in Zero Trust before production.
 ACCESS_TEAM_DOMAIN = "REPLACE_WITH_TEAM.cloudflareaccess.com"
 ACCESS_AUD = "REPLACE_WITH_APPLICATION_AUDIENCE"
 
 # R2 disabled: BOXPANEL must not require a metered R2 subscription.
 # Ad image storage requires a separate zero-auto-charge solution.
+
+# Same-origin hosting avoids third-party Access cookie dependence.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true

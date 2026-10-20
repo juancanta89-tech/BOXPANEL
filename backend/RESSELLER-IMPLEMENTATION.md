@@ -1,11 +1,7 @@
-# BOXPANEL reseller scope
+# Alcance reseller implementado
 
-Approved reseller UI: **ADS** and **DNS** only.
+ADS y DNS únicamente, manteniendo marca BOXPANEL. Máximo 8 imágenes y 3 DNS por reseller. Archivos originales JPG/PNG/WebP de hasta 5 MiB se optimizan en el navegador hasta 256 KiB antes de subir.
 
-- ADS: up to 8 JPG/PNG/WebP images per reseller, uploaded from mobile, stored in private Cloudflare R2 with server-generated object keys.
-- DNS: up to 3 entries per reseller; create/edit/delete; HTTPS preferred. Existing HTTP provider URLs may be stored if specifically authorized, but never treat them as secure.
-- All reseller panels retain BOXPANEL branding; the distributed app alone may have reseller-specific branding.
-- Super admin sees and manages all resellers, DNS and adverts. Reseller sees only their own.
-- The D1 triggers in reseller-limits.sql enforce counts regardless of browser UI.
-- **Not deployed:** no Worker write access through current Cloudflare connector. No real upload endpoints, signed URLs or authenticated accounts yet.
-- Before enabling uploads: verify Cloudflare Access JWT, resolve identity to reseller_id server-side, validate image content/type/size, use R2 key prefix based on verified reseller, prevent cross-tenant access, set content security headers, implement deletion cleanup and audit events.
+Almacenamiento privado D1, tope agregado de 128 MiB. No requiere R2. ADS_STORAGE_ENABLED empieza desactivado hasta comprobar el plan gratuito real. DNS HTTP deshabilitado por defecto y sujeto a autorización explícita.
+
+El propietario puede gestionar todos los registros. Cada reseller ve solo sus datos. Los cambios se auditan atómicamente; formularios con regreso sin guardar y sin datos demo. Código preparado y probado localmente; activación y pruebas remotas pendientes según DEPLOYMENT-CHECKLIST.md.

@@ -1,0 +1,8 @@
+node_modules/
+backend/public/
+backend/.wrangler/
+backend/.dev.vars
+.env
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

@@ -1,3 +1,4 @@
+-- HISTORICAL: not used by API 1.0. Use migrations/0001_boxpanel.sql after reviewed backup/import.
 -- BOXPANEL multi-tenant migration. Apply only after reviewing existing production data.
 CREATE TABLE IF NOT EXISTS resellers (
  id TEXT PRIMARY KEY,
