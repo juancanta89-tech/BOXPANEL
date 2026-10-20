@@ -1,0 +1,31 @@
+name: BOXPANEL D1 diagnostics (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: boxpanel-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Wrangler
+        working-directory: backend
+        run: npm install --no-audit --no-fund
+      - name: Verify BOXPANEL target
+        working-directory: backend
+        run: |
+          grep -qx 'name = "boxpanel-api"' wrangler.toml
+          grep -qx 'database_id = "5fff43be-94a2-4c72-b689-7fd04fdc7d26"' wrangler.toml
+      - name: Inspect table and trigger definitions without changing data
+        working-directory: backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.BOXPANEL_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: "7c38999ef8b7043e5629eccdecd9a961"
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing environment secret'; exit 1; }
+          npx wrangler d1 execute boxpanel-db --remote --command "SELECT name,type,sql FROM sqlite_master WHERE name IN ('resellers','reseller_ads','reseller_dns','panel_accounts','products','ads_quota_insert','dns_quota_insert') ORDER BY type,name;"
+          npx wrangler d1 execute boxpanel-db --remote --command "SELECT 'resellers' AS table_name,COUNT(*) AS rows FROM resellers UNION ALL SELECT 'reseller_ads',COUNT(*) FROM reseller_ads UNION ALL SELECT 'reseller_dns',COUNT(*) FROM reseller_dns;"
