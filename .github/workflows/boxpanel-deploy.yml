@@ -36,7 +36,7 @@ jobs:
           fi
       - name: Install dependencies
         working-directory: backend
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Deploy BOXPANEL only
         working-directory: backend
         env:
@@ -44,4 +44,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: "7c38999ef8b7043e5629eccdecd9a961"
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing BOXPANEL_CLOUDFLARE_API_TOKEN"; exit 1; }
+          npm run check
+          npm test
+          npm run assets
           npx wrangler deploy --name boxpanel-api

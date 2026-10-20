@@ -1,3 +1,4 @@
+-- HISTORICAL: not used by API 1.0. Use migrations/0001_boxpanel.sql after reviewed backup/import.
 -- BOXPANEL: ADS/DNS tables with hard per-reseller quotas.
 -- Safe to run after creating the existing resellers table.
 -- This migration does not enable R2 or any paid storage.

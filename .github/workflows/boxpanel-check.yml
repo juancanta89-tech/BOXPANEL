@@ -1,28 +1,30 @@
-name: BOXPANEL backend syntax checks
+name: BOXPANEL checks
 on:
   push:
-    paths:
-      - 'backend/**'
-      - '.github/workflows/boxpanel-check.yml'
+    paths: ['backend/**', '*.js', '*.html', '*.css', 'package.json', '.github/workflows/boxpanel-check.yml']
   pull_request:
-    paths:
-      - 'backend/**'
+    paths: ['backend/**', '*.js', '*.html', '*.css', 'package.json', '.github/workflows/boxpanel-check.yml']
+permissions:
+  contents: read
 jobs:
-  syntax:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-      - name: Validate Worker JavaScript syntax
+          node-version: '24'
+      - name: Install locked dependencies
+        working-directory: backend
+        run: npm ci --no-audit --no-fund
+      - name: Check application and API
+        working-directory: backend
+        run: npm run check
+      - name: Test permissions, quotas and atomic writes
+        working-directory: backend
+        run: npm test
+      - name: Package same-origin pages and Worker
         working-directory: backend
         run: |
-          node --check src/index.js
-          node --check src/reseller-api.js
-          node --check src/master-api.js
-      - name: Validate Worker config
-        working-directory: backend
-        run: |
-          npm install --no-audit --no-fund
+          npm run assets
           npx wrangler deploy --dry-run --outdir /tmp/boxpanel-build

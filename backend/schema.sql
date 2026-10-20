@@ -1,3 +1,4 @@
+-- HISTORICAL: not used by API 1.0. Use migrations/0001_boxpanel.sql after reviewed backup/import.
 CREATE TABLE IF NOT EXISTS products (
  id TEXT PRIMARY KEY,
  name TEXT NOT NULL,

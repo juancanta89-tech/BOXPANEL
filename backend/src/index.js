@@ -1,74 +1,68 @@
+import { authenticate, verifyAccess } from './auth.js';
 import { routeReseller } from './reseller-api.js';
 import { routeMaster } from './master-api.js';
-const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
-const allowedOrigin=env=>env.PUBLIC_ORIGIN;
-function addCors(response,headers){const h=new Headers(response.headers);Object.entries(headers).forEach(([k,v])=>h.set(k,v));return new Response(response.body,{status:response.status,headers:h})}
-function cors(request,env){const origin=request.headers.get('Origin');return origin===allowedOrigin(env)?{'Access-Control-Allow-Origin':origin,'Vary':'Origin'}:{}}
-function b64url(s){s=s.replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
-async function verifyAccess(request,env){
- const token=request.headers.get('Cf-Access-Jwt-Assertion');
- if(!token||!env.ACCESS_TEAM_DOMAIN||!env.ACCESS_AUD||env.ACCESS_AUD.startsWith('REPLACE_'))return false;
- try{
-  const [head,payload,sig]=token.split('.');if(!head||!payload||!sig)return false;
-  const h=JSON.parse(new TextDecoder().decode(b64url(head)));
-  const p=JSON.parse(new TextDecoder().decode(b64url(payload)));
-  if(h.alg!=='RS256'||!h.kid||p.aud!==env.ACCESS_AUD&&!(Array.isArray(p.aud)&&p.aud.includes(env.ACCESS_AUD)))return false;
-  const issuer='https://'+env.ACCESS_TEAM_DOMAIN.replace(/^https?:\/\//,'').replace(/\/$/,'');
-  if(p.iss!==issuer||!p.exp||p.exp*1000<=Date.now()||!p.iat||p.iat*1000>Date.now()+60000)return false;
-  const jwks=await fetch(issuer+'/cdn-cgi/access/certs',{cf:{cacheTtl:300}}).then(r=>{if(!r.ok)throw Error('certs');return r.json()});
-  const jwk=jwks.keys?.find(k=>k.kid===h.kid&&k.kty==='RSA');if(!jwk)return false;
-  const key=await crypto.subtle.importKey('jwk',jwk,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);
-  return crypto.subtle.verify('RSASSA-PKCS1-v1_5',key,b64url(sig),new TextEncoder().encode(head+'.'+payload));
- }catch{return false}
+import { audit, batch, fail, HttpError, json, readBody, text, url } from './common.js';
+function finish(response, request, env) {
+  const h = new Headers(response.headers), origin = request.headers.get('origin');
+  h.set('x-content-type-options','nosniff'); h.set('referrer-policy','same-origin'); h.set('x-frame-options','DENY');
+  h.set('vary','Origin');
+  if (origin && origin === env.PUBLIC_ORIGIN) { h.set('access-control-allow-origin',origin); h.set('access-control-allow-credentials','true'); }
+  return new Response(response.body,{status:response.status,headers:h});
 }
-function clean(body){
- const name=String(body.name||'').trim().slice(0,100);
- const category=String(body.category||'TV').trim().slice(0,80);
- const description=String(body.description||'').trim().slice(0,2000);
- const icon=String(body.icon||'📺').slice(0,16);
- const published=body.published===true||body.published===1?1:0;
- const image_url=checkUrl(body.image_url);
- const download_url=checkUrl(body.download_url);
- if(!name||!category)throw Error('Nombre y categoría requeridos');
- return {name,category,description,icon,published,image_url,download_url};
+async function productRoute(request,env,account) {
+  if (account.role !== 'super_admin') fail(403,'Solo el administrador puede editar productos.');
+  const path = new URL(request.url).pathname, method = request.method;
+  if (path === '/api/admin/products' && method === 'GET') return json({products:(await env.DB.prepare('SELECT * FROM bp_products ORDER BY updated_at DESC,id LIMIT 200').all()).results});
+  const match = path.match(/^\/api\/admin\/products\/([a-f0-9-]{36})$/), id = match?.[1];
+  if ((!id && path === '/api/admin/products' && method === 'POST') || (id && method === 'PUT')) {
+    const b = await readBody(request), name=text(b.name), category=text(b.category,80), description=text(b.description??'',2000,false), icon=text(b.icon??'📺',16);
+    const image = b.image_url ? url(b.image_url) : null, download = b.download_url ? url(b.download_url) : null;
+    const published = b.published === true ? 1 : 0, target = id || crypto.randomUUID();
+    if (id && !await env.DB.prepare('SELECT id FROM bp_products WHERE id=?').bind(id).first()) fail(404,'Producto no encontrado.');
+    const stmt = id ? env.DB.prepare('UPDATE bp_products SET name=?,category=?,description=?,icon=?,image_url=?,download_url=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(name,category,description,icon,image,download,published,id)
+      : env.DB.prepare('INSERT INTO bp_products(id,name,category,description,icon,image_url,download_url,published) VALUES(?,?,?,?,?,?,?,?)').bind(target,name,category,description,icon,image,download,published);
+    await batch(env,[stmt,audit(env,account,null,id?'product.update':'product.create',target)]); return json({ok:true,id:target},id?200:201);
+  }
+  if (id && method === 'DELETE') {
+    if (!await env.DB.prepare('SELECT id FROM bp_products WHERE id=?').bind(id).first()) fail(404,'Producto no encontrado.');
+    await batch(env,[env.DB.prepare('DELETE FROM bp_products WHERE id=?').bind(id),audit(env,account,null,'product.delete',id)]);return json({ok:true});
+  }
+  fail(404,'Ruta no encontrada.');
 }
-function checkUrl(value){if(!value)return null;const u=new URL(String(value));if(u.protocol!=='https:')throw Error('Solo se admiten enlaces HTTPS');return u.href.slice(0,1500)}
-export default {async fetch(request,env){
- const path=new URL(request.url).pathname;
- const headers=cors(request,env);
- if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Cf-Access-Jwt-Assertion'}});
- if(path==='/health')return json({ok:true,service:'BOXPANEL API'},200,headers);
- if(path.startsWith('/api/reseller/'))return addCors(await routeReseller(request,env,verifyAccess),headers);
- if(path.startsWith('/api/master/'))return addCors(await routeMaster(request,env,verifyAccess),headers);
- if(path==='/api/products'&&request.method==='GET'){
-  const r=await env.DB.prepare('SELECT id,name,category,description,icon,image_url,download_url,updated_at FROM products WHERE published=1 ORDER BY updated_at DESC LIMIT 100').all();
-  return json({products:r.results},200,headers);
- }
- if(!path.startsWith('/api/admin/'))return json({error:'Not found'},404,headers);
- if(!(await verifyAccess(request,env)))return json({error:'Unauthorized'},401,headers);
- // Only the verified super admin may access global product management.
- try{
-  const jwt=request.headers.get('Cf-Access-Jwt-Assertion');
-  const raw=jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
-  const claims=JSON.parse(atob(raw));
-  const account=await env.DB.prepare('SELECT role,active FROM panel_accounts WHERE access_identity=?').bind(String(claims.sub||'')).first();
-  if(!account||account.active!==1||account.role!=='super_admin')return json({error:'Forbidden'},403,headers);
-  if(path==='/api/admin/products'&&request.method==='GET'){
-   const r=await env.DB.prepare('SELECT * FROM products ORDER BY updated_at DESC LIMIT 200').all();return json({products:r.results},200,headers);
+export default { async fetch(request,env) {
+  try {
+    const u = new URL(request.url), path = u.pathname, origin = request.headers.get('origin');
+    // Cookie-authenticated writes must come from the hosted panel or its exact configured public origin.
+    if (origin && origin !== u.origin && origin !== env.PUBLIC_ORIGIN) fail(403,'Origen no autorizado.');
+    if (request.method === 'OPTIONS') {
+      if (!origin) fail(403,'Origen requerido.');
+      return finish(new Response(null,{status:204,headers:{'access-control-allow-methods':'GET,POST,PUT,DELETE,OPTIONS','access-control-allow-headers':'Content-Type, X-Boxpanel-Request'}}),request,env);
+    }
+    if (!['GET','HEAD'].includes(request.method) && request.headers.get('X-Boxpanel-Request') !== '1') fail(403,'Solicitud de escritura no autorizada.');
+    if (path === '/health') return finish(json({ok:true,service:'BOXPANEL API',version:'1.0'}),request,env);
+    if (path === '/api/products' && request.method === 'GET') return finish(json({products:(await env.DB.prepare('SELECT id,name,category,description,icon,image_url,download_url FROM bp_products WHERE published=1 ORDER BY updated_at DESC,id LIMIT 100').all()).results}),request,env);
+    if (!path.startsWith('/api/')) {
+      if (!env.ASSETS) fail(404,'Página no encontrada.');
+      const response = await env.ASSETS.fetch(request);
+      const h = new Headers(response.headers);
+      h.set('content-security-policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+      return finish(new Response(response.body,{status:response.status,headers:h}),request,env);
+    }
+    if (path === '/api/identity' && request.method === 'GET') {
+      const claims = await verifyAccess(request,env);
+      if (!claims) fail(401,'Inicia sesión para consultar tu identidad.');
+      return finish(json({sub:claims.sub}),request,env);
+    }
+    const account = await authenticate(request,env);
+    let response;
+    if (path === '/api/session' && request.method === 'GET') response=json({account,allow_http_dns:env.ALLOW_HTTP_DNS==='true'});
+    else if (path === '/api/login' && request.method === 'GET') response=Response.redirect(u.origin+(account.role==='super_admin'?'/master.html':'/reseller.html'),303);
+    else if (path.startsWith('/api/reseller/')) response=await routeReseller(request,env,account);
+    else if (path.startsWith('/api/master/')) response=await routeMaster(request,env,account);
+    else if (path.startsWith('/api/admin/')) response=await productRoute(request,env,account);
+    else fail(404,'Ruta no encontrada.');
+    return finish(response,request,env);
+  } catch(e) {
+    return finish(json({error:e instanceof HttpError?e.message:'Servicio temporalmente no disponible. Verifica la configuración de la base de datos.'},e instanceof HttpError?e.status:503),request,env);
   }
-  if(path==='/api/admin/products'&&request.method==='POST'){
-   const p=clean(await request.json());const id=crypto.randomUUID();
-   await env.DB.prepare('INSERT INTO products (id,name,category,description,icon,image_url,download_url,published) VALUES (?,?,?,?,?,?,?,?)').bind(id,p.name,p.category,p.description,p.icon,p.image_url,p.download_url,p.published).run();
-   return json({ok:true,id},201,headers);
-  }
-  const m=path.match(/^\/api\/admin\/products\/([a-f0-9-]{36})$/);
-  if(m&&request.method==='PUT'){
-   const p=clean(await request.json());const r=await env.DB.prepare('UPDATE products SET name=?,category=?,description=?,icon=?,image_url=?,download_url=?,published=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(p.name,p.category,p.description,p.icon,p.image_url,p.download_url,p.published,m[1]).run();
-   return json({ok:r.meta.changes>0},r.meta.changes?200:404,headers);
-  }
-  if(m&&request.method==='DELETE'){
-   const r=await env.DB.prepare('DELETE FROM products WHERE id=?').bind(m[1]).run();return json({ok:r.meta.changes>0},r.meta.changes?200:404,headers);
-  }
-  return json({error:'Not found'},404,headers);
- }catch(e){return json({error:e instanceof SyntaxError?'JSON inválido':'Datos inválidos'},400,headers)}
 }};

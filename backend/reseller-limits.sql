@@ -1,3 +1,4 @@
+-- HISTORICAL: not used by API 1.0. Use migrations/0001_boxpanel.sql after reviewed backup/import.
 -- Run after schema-v2.sql. Enforce reseller quotas at the database layer.
 CREATE TABLE IF NOT EXISTS reseller_ads (
  id TEXT PRIMARY KEY,
