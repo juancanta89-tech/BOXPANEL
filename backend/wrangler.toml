@@ -14,7 +14,5 @@ PUBLIC_ORIGIN = "https://juancanta89-tech.github.io"
 ACCESS_TEAM_DOMAIN = "REPLACE_WITH_TEAM.cloudflareaccess.com"
 ACCESS_AUD = "REPLACE_WITH_APPLICATION_AUDIENCE"
 
-# Create a private R2 bucket named boxpanel-ads before deployment.
-[[r2_buckets]]
-binding = "ADS_BUCKET"
-bucket_name = "boxpanel-ads"
+# R2 disabled: BOXPANEL must not require a metered R2 subscription.
+# Ad image storage requires a separate zero-auto-charge solution.
