@@ -1,3 +1,4 @@
+import { routeReseller } from './reseller-api.js';
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const allowedOrigin=env=>env.PUBLIC_ORIGIN;
 function cors(request,env){const origin=request.headers.get('Origin');return origin===allowedOrigin(env)?{'Access-Control-Allow-Origin':origin,'Vary':'Origin'}:{}}
@@ -35,13 +36,20 @@ export default {async fetch(request,env){
  const headers=cors(request,env);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
  if(path==='/health')return json({ok:true,service:'BOXPANEL API'},200,headers);
+ if(path.startsWith('/api/reseller/'))return routeReseller(request,env,verifyAccess);
  if(path==='/api/products'&&request.method==='GET'){
   const r=await env.DB.prepare('SELECT id,name,category,description,icon,image_url,download_url,updated_at FROM products WHERE published=1 ORDER BY updated_at DESC LIMIT 100').all();
   return json({products:r.results},200,headers);
  }
  if(!path.startsWith('/api/admin/'))return json({error:'Not found'},404,headers);
  if(!(await verifyAccess(request,env)))return json({error:'Unauthorized'},401,headers);
+ // Only the verified super admin may access global product management.
  try{
+  const jwt=request.headers.get('Cf-Access-Jwt-Assertion');
+  const raw=jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+  const claims=JSON.parse(atob(raw));
+  const account=await env.DB.prepare('SELECT role,active FROM panel_accounts WHERE access_identity=?').bind(String(claims.sub||'')).first();
+  if(!account||account.active!==1||account.role!=='super_admin')return json({error:'Forbidden'},403,headers);
   if(path==='/api/admin/products'&&request.method==='GET'){
    const r=await env.DB.prepare('SELECT * FROM products ORDER BY updated_at DESC LIMIT 200').all();return json({products:r.results},200,headers);
   }
