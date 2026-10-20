@@ -49,7 +49,7 @@ export async function routeReseller(request,env,verifyAccess){
    return reply({items:r.results,limit:8});
   }
   if(path==='/api/reseller/ads'&&method==='POST'){
-   if(!env.ADS_BUCKET)return reply({error:'R2 bucket not configured'},503);
+   if(!env.ADS_BUCKET)return reply({error:'Image uploads are disabled until a no-overage storage service is configured'},503);
    const type=request.headers.get('Content-Type')||'';
    if(!type.toLowerCase().startsWith('multipart/form-data'))return reply({error:'Expected multipart form'},415);
    const form=await request.formData(),file=form.get('image'),title=String(form.get('title')||'').slice(0,100);
@@ -69,6 +69,7 @@ export async function routeReseller(request,env,verifyAccess){
   if(adMatch&&method==='GET'){
    const ad=await env.DB.prepare('SELECT r2_object_key,mime_type FROM reseller_ads WHERE id=? AND reseller_id=?').bind(adMatch[1],resellerId).first();
    if(!ad)return reply({error:'Not found'},404);
+   if(!env.ADS_BUCKET)return reply({error:'Image storage is not configured'},503);
    const obj=await env.ADS_BUCKET.get(ad.r2_object_key);
    if(!obj)return reply({error:'File not found'},404);
    return new Response(obj.body,{headers:{'content-type':ad.mime_type,'cache-control':'private, no-store','x-content-type-options':'nosniff'}});
@@ -77,7 +78,7 @@ export async function routeReseller(request,env,verifyAccess){
    const ad=await env.DB.prepare('SELECT r2_object_key FROM reseller_ads WHERE id=? AND reseller_id=?').bind(adMatch[1],resellerId).first();
    if(!ad)return reply({error:'Not found'},404);
    await env.DB.prepare('DELETE FROM reseller_ads WHERE id=? AND reseller_id=?').bind(adMatch[1],resellerId).run();
-   await env.ADS_BUCKET.delete(ad.r2_object_key);
+   if(env.ADS_BUCKET)await env.ADS_BUCKET.delete(ad.r2_object_key);
    return reply({ok:true});
   }
   return reply({error:'Not found'},404);
