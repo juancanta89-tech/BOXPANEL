@@ -27,5 +27,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: "7c38999ef8b7043e5629eccdecd9a961"
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing environment secret'; exit 1; }
+          node -e 'const t=process.env.CLOUDFLARE_API_TOKEN||""; if(!/^[A-Za-z0-9_-]+$/.test(t)){console.error("Invalid token format: ensure GitHub secret contains ONLY the Cloudflare API token, without Bearer, quotes, spaces, line breaks or JSON.");process.exit(1)}'
           npx wrangler d1 execute boxpanel-db --remote --command "SELECT name,type,sql FROM sqlite_master WHERE name IN ('resellers','reseller_ads','reseller_dns','panel_accounts','products','ads_quota_insert','dns_quota_insert') ORDER BY type,name;"
           npx wrangler d1 execute boxpanel-db --remote --command "SELECT 'resellers' AS table_name,COUNT(*) AS rows FROM resellers UNION ALL SELECT 'reseller_ads',COUNT(*) FROM reseller_ads UNION ALL SELECT 'reseller_dns',COUNT(*) FROM reseller_dns;"
