@@ -1,0 +1,15 @@
+name = "boxpanel-api"
+main = "src/index.js"
+compatibility_date = "2026-10-20"
+
+# Configure a D1 database in Cloudflare and replace the placeholder.
+[[d1_databases]]
+binding = "DB"
+database_name = "boxpanel-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[vars]
+PUBLIC_ORIGIN = "https://juancanta89-tech.github.io"
+# Configure Cloudflare Access in Zero Trust before production.
+ACCESS_TEAM_DOMAIN = "REPLACE_WITH_TEAM.cloudflareaccess.com"
+ACCESS_AUD = "REPLACE_WITH_APPLICATION_AUDIENCE"
