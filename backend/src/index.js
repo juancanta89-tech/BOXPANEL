@@ -2,6 +2,7 @@ import { routeReseller } from './reseller-api.js';
 import { routeMaster } from './master-api.js';
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}});
 const allowedOrigin=env=>env.PUBLIC_ORIGIN;
+function addCors(response,headers){const h=new Headers(response.headers);Object.entries(headers).forEach(([k,v])=>h.set(k,v));return new Response(response.body,{status:response.status,headers:h})}
 function cors(request,env){const origin=request.headers.get('Origin');return origin===allowedOrigin(env)?{'Access-Control-Allow-Origin':origin,'Vary':'Origin'}:{}}
 function b64url(s){s=s.replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
 async function verifyAccess(request,env){
@@ -37,8 +38,8 @@ export default {async fetch(request,env){
  const headers=cors(request,env);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
  if(path==='/health')return json({ok:true,service:'BOXPANEL API'},200,headers);
- if(path.startsWith('/api/reseller/'))return routeReseller(request,env,verifyAccess);
- if(path.startsWith('/api/master/'))return routeMaster(request,env,verifyAccess);
+ if(path.startsWith('/api/reseller/'))return addCors(await routeReseller(request,env,verifyAccess),headers);
+ if(path.startsWith('/api/master/'))return addCors(await routeMaster(request,env,verifyAccess),headers);
  if(path==='/api/products'&&request.method==='GET'){
   const r=await env.DB.prepare('SELECT id,name,category,description,icon,image_url,download_url,updated_at FROM products WHERE published=1 ORDER BY updated_at DESC LIMIT 100').all();
   return json({products:r.results},200,headers);
