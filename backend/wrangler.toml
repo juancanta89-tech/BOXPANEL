@@ -13,3 +13,8 @@ PUBLIC_ORIGIN = "https://juancanta89-tech.github.io"
 # Configure Cloudflare Access in Zero Trust before production.
 ACCESS_TEAM_DOMAIN = "REPLACE_WITH_TEAM.cloudflareaccess.com"
 ACCESS_AUD = "REPLACE_WITH_APPLICATION_AUDIENCE"
+
+# Create a private R2 bucket named boxpanel-ads before deployment.
+[[r2_buckets]]
+binding = "ADS_BUCKET"
+bucket_name = "boxpanel-ads"
